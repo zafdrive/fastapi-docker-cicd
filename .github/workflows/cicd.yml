@@ -1,40 +1,26 @@
-name: CI/CD + Trivy Scan
-
+name: FastAPI CI/CD Trivy
 on: [push, pull_request]
-
 jobs:
-  test-build-scan:
+  test:
     runs-on: ubuntu-latest
     steps:
     - uses: actions/checkout@v4
-    
-    - name: Setup Python
-      uses: actions/setup-python@v5
-      with: python-version: 3.12
-    
-    - name: Install & Test
-      run: |
-        pip install -r requirements.txt pytest-cov
-        pytest tests/ -v
-    
-    - name: Build Docker
-      run: docker build -t fastapi-app .
-    
-    - name: Trivy scan
-      uses: aquasecurity/trivy-action@master
+    - uses: actions/setup-python@v5
       with:
-        image-ref: fastapi-app
-        format: sarif
-        output: trivy-results.sarif
-        severity: CRITICAL,HIGH
-    
-    - name: Upload Trivy
-      uses: github/codeql-action/upload-sarif@v3
-      with: sarif_file: trivy-results.sarif
-    
-    - name: GHCR Push (main only)
-      if: github.ref == 'refs/heads/main' && github.event_name == 'push'
-      run: |
-        echo ${{ secrets.GITHUB_TOKEN }} | docker login ghcr.io -u ${{ github.actor }} --password-stdin
-        docker tag fastapi-app ghcr.io/${{ github.repository_owner }}/fastapi-docker-cicd:latest
-        docker push ghcr.io/${{ github.repository_owner }}/fastapi-docker-cicd:latest
+        python-version: 3.12
+    - run: pip install -r requirements.txt pytest
+    - run: pytest tests/ -v
+  docker:
+    runs-on: ubuntu-latest
+    steps:
+    - uses: actions/checkout@v4
+    - run: docker build -t app .
+  trivy:
+    runs-on: ubuntu-latest
+    steps:
+    - uses: actions/checkout@v4
+    - run: docker build -t app .
+    - uses: aquasecurity/trivy-action@0.28.0
+      with:
+        image-ref: app
+        format: table
