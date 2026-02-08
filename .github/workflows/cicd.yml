@@ -1,28 +1,30 @@
-name: CI/CD Trivy
+name: FastAPI CI/CD Trivy
 on: [push, pull_request]
+permissions:
+  contents: read
+  security-events: write  # 🔑 Fix SARIF upload
 jobs:
-  test:
+  ci:
     runs-on: ubuntu-latest
     steps:
     - uses: actions/checkout@v4
     - uses: actions/setup-python@v5
-      with: {python-version: 3.12}
-    - run: pip install -r requirements.txt httpx pytest
-    - run: python -m pytest tests/ -v  # PYTHONPATH auto
-  build:
-    runs-on: ubuntu-latest
-    steps:
-    - uses: actions/checkout@v4
-    - run: docker build -t app .
-  scan:
-    runs-on: ubuntu-latest
-    steps:
-    - uses: actions/checkout@v4
-    - run: docker build -t app .
-    - uses: aquasecurity/trivy-action@0.28.0
+      with:
+        python-version: 3.12
+    - name: Test
+      run: |
+        pip install -r requirements.txt httpx pytest
+        pytest tests/ -v
+    - name: Docker build
+      run: docker build -t app .
+    - name: Trivy scan
+      uses: aquasecurity/trivy-action@0.28.0
       with:
         image-ref: app
         format: sarif
         output: trivy-results.sarif
-    - uses: github/codeql-action/upload-sarif@v3
-      with: {sarif_file: trivy-results.sarif}
+    - name: Upload SARIF
+      uses: github/codeql-action/upload-sarif@v3
+      if: always()
+      with:
+        sarif_file: trivy-results.sarif
